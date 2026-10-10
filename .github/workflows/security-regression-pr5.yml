@@ -1,0 +1,57 @@
+name: Security regression candidates (PR 5)
+on:
+  push:
+    branches:
+      - security/range-limb-regression-draft
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  range-limb:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout contribution branch
+        uses: actions/checkout@v4
+        with:
+          path: contribution
+      - name: Checkout pinned upstream security PR
+        uses: actions/checkout@v4
+        with:
+          repository: zkFOL/zkfol
+          ref: 857a056cd39d52fd2abc433762587879735f9390
+          path: project
+      - name: Install Elixir and Erlang
+        uses: erlef/setup-beam@v1
+        with:
+          elixir-version: '1.18.4'
+          otp-version: '27.3'
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+      - name: Insert candidate examples into PR 5 module
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          target = Path("project/lib/examples/e_uair.ex")
+          candidate = Path("contribution/security-review/range_limb_regression_candidate.exs").read_text()
+          source = target.read_text()
+          assert source.rstrip().endswith("end"), "Unexpected module layout"
+          assert "field(:limbs" in Path("project/lib/zkfol/uair.ex").read_text(), "Wrong upstream revision"
+          prefix, ending = source.rsplit("\nend", 1)
+          target.write_text(prefix + "\n\n" + candidate + "\nend" + ending)
+          print("Injected security regression candidates into Examples.EUair")
+          PY
+      - name: Install dependencies
+        working-directory: project
+        run: |
+          mix local.hex --force
+          mix local.rebar --force
+          mix deps.get
+      - name: Run example regression suite (including prover)
+        working-directory: project
+        env:
+          ZKFOL_PROVE: '1'
+        run: mix test test/examples_test.exs
