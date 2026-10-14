@@ -1,4 +1,4 @@
-name: Security regression candidates (PR 5)
+name: Security regression candidates (PR 5) # rerun after returning forged fixtures
 on:
   push:
     branches:
