@@ -323,6 +323,7 @@ defmodule Examples.EUair do
   end
 
   @doc "A tampered limb must be rejected while its parent value stays unchanged."
+  @spec changing_only_a_limb_is_refused() :: Uair.t()
   example changing_only_a_limb_is_refused do
     uair = slacked_trace()
     assert [{bounded, [low | _]} | _] = uair.limbs
@@ -337,18 +338,24 @@ defmodule Examples.EUair do
     assert changed != uair.columns
     assert Enum.at(changed, bounded) == original_parent
     assert Enum.at(changed, low) != original_limb
-    assert {:error, _reason} = Prover.prove_uair(%{uair | columns: changed})
+    forged = %{uair | columns: changed}
+    assert {:error, _reason} = Prover.prove_uair(forged)
+    forged
   end
 
   @doc "A limb outside the Word(8) table must be rejected."
+  @spec a_limb_above_255_is_refused() :: Uair.t()
   example a_limb_above_255_is_refused do
     uair = slacked_trace()
     assert [{_bounded, [low | _]} | _] = uair.limbs
     changed = List.update_at(uair.columns, low, &List.replace_at(&1, 0, 256))
-    assert {:error, _reason} = Prover.prove_uair(%{uair | columns: changed})
+    forged = %{uair | columns: changed}
+    assert {:error, _reason} = Prover.prove_uair(forged)
+    forged
   end
 
   @doc "A tampered final padded row limb must be rejected."
+  @spec a_final_row_limb_tamper_is_refused() :: Uair.t()
   example a_final_row_limb_tamper_is_refused do
     uair = slacked_trace()
     assert [{bounded, [low | _]} | _] = uair.limbs
@@ -362,7 +369,9 @@ defmodule Examples.EUair do
 
     assert Enum.at(changed, bounded) == original_parent
     assert Enum.at(changed, low) != Enum.at(uair.columns, low)
-    assert {:error, _reason} = Prover.prove_uair(%{uair | columns: changed})
+    forged = %{uair | columns: changed}
+    assert {:error, _reason} = Prover.prove_uair(forged)
+    forged
   end
 
 end
