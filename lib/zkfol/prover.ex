@@ -53,8 +53,10 @@ defmodule Zkfol.Prover do
 
   @impl true
   def handle_call({:run, uair, intent, opts}, _from, inflight) do
-    case Uair.request(uair, opts) do
-      {:ok, req} -> {:reply, :ok, Map.put(inflight, req, {intent, uair.claims})}
+    with {:ok, claims} <- report_claims(uair),
+         {:ok, req} <- Uair.request(uair, opts) do
+      {:reply, :ok, Map.put(inflight, req, {intent, claims})}
+    else
       {:error, _reason} = error -> {:reply, error, inflight}
     end
   end
@@ -77,6 +79,46 @@ defmodule Zkfol.Prover do
         {:noreply, inflight}
     end
   end
+
+  @spec report_claims(Uair.t()) ::
+          {:ok, [{String.t(), non_neg_integer()}]} | {:error, Refusal.t()}
+  defp report_claims(%Uair{claims: claims} = uair) do
+    cols =
+      claims
+      |> Enum.flat_map(fn
+        {_name, row, _x} -> [row]
+        _claim -> []
+      end)
+      |> Enum.uniq()
+      |> Enum.with_index()
+      |> Map.new()
+
+    Refusal.map(claims, &report_claim(uair, cols, &1))
+  end
+
+  @spec report_claim(Uair.t(), map(), term()) ::
+          {:ok, {String.t(), non_neg_integer()}} | {:error, Refusal.t()}
+  defp report_claim(
+         %Uair{columns: columns, len: len, num_public: num_public},
+         cols,
+         {name, row, x}
+       )
+       when is_binary(name) and is_integer(row) and is_integer(x) and x >= 1 and x <= len do
+    with {:ok, column} <- Map.fetch(cols, row),
+         true <- column < num_public,
+         {:ok, values} <- Enum.fetch(columns, column),
+         {:ok, value} <- Enum.fetch(values, len - x) do
+      {:ok, {name, value}}
+    else
+      _outside -> {:error, {:claim_outside_witness, %{claim: name, row: row, column: x}}}
+    end
+  end
+
+  defp report_claim(_uair, _cols, {name, row, x}),
+    do: {:error, {:claim_outside_witness, %{claim: name, row: row, column: x}}}
+
+  defp report_claim(_uair, _cols, claim),
+    do: {:error, {:claim_outside_witness, %{claim: claim, row: nil, column: nil}}}
 
   @impl true
   def terminate(_reason, inflight) do

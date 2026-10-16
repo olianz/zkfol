@@ -97,6 +97,17 @@ defmodule Examples.EFibonacci do
     reason
   end
 
+  @spec reported_claims_come_from_public_cells() :: Prover.Report.t()
+  example reported_claims_come_from_public_cells do
+    {:ok, uair} = Uair.emit(fibonacci_predicate(), fibonacci_witness(), [{"fib", 2, 8}])
+
+    # Changing the selector can only report a cell from the public column.
+    retargeted = %{uair | claims: [{"fib", 2, 7}]}
+    {:ok, report, _intent} = Uair.prove_uair(retargeted)
+    assert report.claims == [{"fib", 13}]
+    report
+  end
+
   @spec negative_cell_is_refused() :: Refusal.t()
   example negative_cell_is_refused do
     {:ok, uair} = Uair.emit(fibonacci_predicate(), fibonacci_witness())

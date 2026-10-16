@@ -44,7 +44,7 @@ defmodule Zkfol.Uair do
     field(:num_public, non_neg_integer())
     # The trace length proper: padding rows pass for data.
     field(:len, pos_integer())
-    field(:claims, [{String.t(), non_neg_integer()}], default: [])
+    field(:claims, [Interpretation.claim()], default: [])
     field(:shifts, [{non_neg_integer(), pos_integer()}])
     field(:program, [{atom(), integer()}])
     field(:columns, [[integer()]])
@@ -202,7 +202,7 @@ defmodule Zkfol.Uair do
          {:ok, pred, witness, lowering} <- Composed.lower(pred, schedules, witness, num_vars),
          poly = Ast.arithmetize(pred),
          refs = refs(poly, schedules) ++ Enum.map(Composed.value_rows(lowering), &{&1, nil}),
-         {:ok, resolved} <- resolve_claims(claims, witness),
+         :ok <- claims_in_witness(claims, witness),
          :ok <- models(pred, witness) do
       public = claims |> Enum.map(&elem(&1, 1)) |> Enum.uniq()
       %{rows: rows, cols: cols, shifts: shifts, down: down} = slots(refs, public)
@@ -218,7 +218,7 @@ defmodule Zkfol.Uair do
          %__MODULE__{
            num_public: length(public),
            len: len,
-           claims: resolved,
+           claims: claims,
            shifts: shifts,
            program: program,
            columns: columns,
@@ -339,23 +339,17 @@ defmodule Zkfol.Uair do
     |> Ast.disj()
   end
 
-  # Validate each claim by resolving its value; out of range refuses.
-  @spec resolve_claims([Interpretation.claim()], Interpretation.t()) ::
-          {:ok, [{String.t(), non_neg_integer()}]} | {:error, Refusal.t()}
-  defp resolve_claims(claims, witness) do
-    Enum.reduce_while(claims, {:ok, []}, fn {name, row, x}, {:ok, acc} ->
-      case Interpretation.fetch(witness, row, x) do
-        {:ok, value} ->
-          {:cont, {:ok, [{name, value} | acc]}}
-
-        :error ->
-          {:halt, {:error, {:claim_outside_witness, %{claim: name, row: row, column: x}}}}
+  # Every claim must name a witness cell before it can become a public opening.
+  @spec claims_in_witness([Interpretation.claim()], Interpretation.t()) ::
+          :ok | {:error, Refusal.t()}
+  defp claims_in_witness(claims, witness) do
+    Refusal.refute(
+      claims,
+      fn {_name, row, x} -> Interpretation.fetch(witness, row, x) == :error end,
+      fn {name, row, x} ->
+        {:claim_outside_witness, %{claim: name, row: row, column: x}}
       end
-    end)
-    |> case do
-      {:ok, resolved} -> {:ok, Enum.reverse(resolved)}
-      error -> error
-    end
+    )
   end
 
   # A witness that is no model of the scheduled statement is refused
