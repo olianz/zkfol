@@ -138,6 +138,28 @@ defmodule Examples.EUair do
     long
   end
 
+  @doc "A bare affine read stays tied to the address it names."
+  @spec bare_affine_read_keeps_its_address() :: Uair.t()
+  example bare_affine_read_keeps_its_address do
+    pred = Ast.eq(Ast.at(1, :x, -1, 5), 7)
+    {:ok, uair} = Uair.emit(pred, Interpretation.new([[7, 7, 7, 7]]), [{"opened", 1, 2}])
+    cube = Integer.pow(2, Uair.num_vars(uair))
+    source = [0, 0, 0 | List.duplicate(7, cube - 3)]
+    ones = List.duplicate(1, cube)
+    zeros = List.duplicate(0, cube)
+    sevens = List.duplicate(7, cube)
+
+    [_public, _value, _pointer, _bit0, _bit1, _bit2, _slack, _result, x, one] =
+      uair.columns
+
+    forged = %{uair | columns: [source, source, ones, ones, ones, zeros, zeros, sevens, x, one]}
+
+    refute Semantics.valid?(pred, Interpretation.new([[7, 0, 0, 0]]))
+    refute Uair.holds?(forged)
+    assert {:error, {:verifier_rejected, _}} = Prover.prove_uair(forged)
+    uair
+  end
+
   @doc "A full trace reserves padding: the backend's exempt final row is never an actual cell."
   @spec the_exempt_row_is_padding() :: Uair.t()
   example the_exempt_row_is_padding do
