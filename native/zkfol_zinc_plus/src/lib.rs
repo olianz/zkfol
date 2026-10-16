@@ -24,7 +24,20 @@ use config::{
 };
 use runtime::{Op, Permuted, RuntimeUair, Selected, Spec, Tie, SPEC};
 
-const BACKEND: &str = "zinc-plus-66776a3";
+fn backend() -> &'static str {
+    static BACKEND: OnceLock<String> = OnceLock::new();
+
+    BACKEND.get_or_init(|| {
+        let revision = include_str!("../Cargo.lock")
+            .split("[[package]]")
+            .find(|package| package.contains("name = \"zinc-protocol\"\n"))
+            .and_then(|package| package.split_once('#'))
+            .and_then(|(_source, revision)| revision.get(..7))
+            .expect("zinc-protocol is locked to a git revision");
+
+        format!("zinc-plus-{revision}")
+    })
+}
 
 #[derive(rustler::NifMap)]
 struct PcsParams {
@@ -247,7 +260,7 @@ fn run(payload: Payload, num_vars: usize, public: usize) -> Result<Report, Strin
         Payload::I64(columns) => {
             let trace = runtime::trace(columns, num_vars);
             let pp = setup_pp(num_vars)?;
-            prove_verify!(Cfg, i64, pp, trace, num_vars, public, BACKEND.to_string())
+            prove_verify!(Cfg, i64, pp, trace, num_vars, public, backend().to_string())
         }
         Payload::Big(columns) => {
             let trace = runtime::limb_trace::<12>(columns, num_vars);
@@ -259,7 +272,7 @@ fn run(payload: Payload, num_vars: usize, public: usize) -> Result<Report, Strin
                 trace,
                 num_vars,
                 public,
-                format!("{BACKEND}/int768")
+                format!("{}/int768", backend())
             )
         }
         Payload::Huge(columns) => {
@@ -272,7 +285,7 @@ fn run(payload: Payload, num_vars: usize, public: usize) -> Result<Report, Strin
                 trace,
                 num_vars,
                 public,
-                format!("{BACKEND}/int7040")
+                format!("{}/int7040", backend())
             )
         }
     }
@@ -289,7 +302,7 @@ fn pcs_params() -> PcsParams {
         rep_factor: REP_FACTOR,
         column_openings: NUM_COLUMN_OPENINGS,
         degree: D,
-        backend: BACKEND.to_string(),
+        backend: backend().to_string(),
     }
 }
 
