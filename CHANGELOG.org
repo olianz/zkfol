@@ -1,3 +1,22 @@
+* V0.6.1
+This release is mostly a bug fix release. We do offer 2 concrete
+features. Namely proof exporting and some string literals.
+
+** Features
+- String literals in relations are lists of codepoints.
+- ~export: prefix~ writes the statement and proof for a separate
+  process to check with ~zkfol_verify~.
+** Changes
+- The values shown in proof results now come from the public columns
+  verified by Zinc+.
+- Backward reads cannot address padding.
+- Bounded rows use 8-bit limbs with unchunked Word lookups.
+- Verifier checks arithmetic overflow
+- Backend reports the version from ~Cargo.lock~
+- README hand written and massively improved.
+** Dependencies
+- Zinc+ ~55bf115~, carrying the verifier soundness fixes
+
 * V0.6.0
 ** Features
 - ~permutation/2~ primitive is introduced that notes a permutation of
