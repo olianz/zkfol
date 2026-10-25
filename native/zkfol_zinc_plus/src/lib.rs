@@ -72,9 +72,13 @@ fn decode_program(program: Vec<(rustler::types::atom::Atom, i64)>) -> Result<Vec
         .into_iter()
         .map(|(op, arg)| {
             if op == atoms::up() {
-                Ok(Op::Up(arg as usize))
+                usize::try_from(arg)
+                    .map(Op::Up)
+                    .map_err(|_| "negative up column index".to_string())
             } else if op == atoms::down() {
-                Ok(Op::Down(arg as usize))
+                usize::try_from(arg)
+                    .map(Op::Down)
+                    .map_err(|_| "negative down column index".to_string())
             } else if op == atoms::constant() {
                 Ok(Op::Const(arg))
             } else if op == atoms::add() {
@@ -294,3 +298,26 @@ fn pcs_params() -> PcsParams {
 }
 
 rustler::init!("Elixir.Zkfol.ZincPlus.Native");
+
+#[cfg(test)]
+mod decode_tests {
+    use super::{atoms, decode_program, Op};
+
+    #[test]
+    fn negative_column_offsets_are_rejected() {
+        assert_eq!(
+            decode_program(vec![(atoms::up(), -1)]).unwrap_err(),
+            "negative up column index"
+        );
+        assert_eq!(
+            decode_program(vec![(atoms::down(), -1)]).unwrap_err(),
+            "negative down column index"
+        );
+    }
+
+    #[test]
+    fn valid_column_offsets_still_decode() {
+        let program = decode_program(vec![(atoms::up(), 0), (atoms::down(), 3)]).unwrap();
+        assert!(matches!(program.as_slice(), [Op::Up(0), Op::Down(3)]));
+    }
+}
