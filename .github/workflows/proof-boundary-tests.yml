@@ -1,0 +1,23 @@
+name: Rust proof-boundary tests
+
+on:
+  push:
+    branches:
+      - olianz/validate-proof-statement-ci
+
+jobs:
+  rust-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.91.0"
+          components: rustfmt
+      - name: Check formatting
+        working-directory: native/zkfol_zinc_plus
+        run: cargo fmt --check
+      - name: Run Rust unit tests
+        working-directory: native/zkfol_zinc_plus
+        run: cargo test --lib
