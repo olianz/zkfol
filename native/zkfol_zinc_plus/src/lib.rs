@@ -426,8 +426,10 @@ pub fn check(statement: &str, proof: &str) -> Result<(), String> {
     statement.validate()?;
 
     let bytes = read(proof)?;
-    let proof = catch_unwind(AssertUnwindSafe(|| Proof::read_transcription_bytes_exact(&bytes)))
-        .map_err(|_| "invalid proof encoding".to_string())?;
+    let proof = catch_unwind(AssertUnwindSafe(|| {
+        Proof::read_transcription_bytes_exact(&bytes)
+    }))
+    .map_err(|_| "invalid proof encoding".to_string())?;
     catch_unwind(AssertUnwindSafe(|| statement.verify(proof)))
         .map_err(|_| "proof verifier rejected malformed input".to_string())?
 }
