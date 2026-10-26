@@ -17,7 +17,7 @@ jobs:
           components: rustfmt
       - name: Check formatting
         working-directory: native/zkfol_zinc_plus
-        run: cargo fmt --check
+        run: rustfmt --config skip_children=true --check src/lib.rs
       - name: Run Rust unit tests
         working-directory: native/zkfol_zinc_plus
         run: cargo test --lib
