@@ -341,9 +341,15 @@ impl Statement {
         let mut depth = 0usize;
         for op in &self.spec.program {
             match op {
-                Op::Up(col) | Op::Down(col) => {
+                Op::Up(col) => {
                     if *col >= cols {
                         return Err("program column out of bounds".to_string());
+                    }
+                    depth += 1;
+                }
+                Op::Down(shift) => {
+                    if *shift >= self.spec.shifts.len() {
+                        return Err("program shift out of bounds".to_string());
                     }
                     depth += 1;
                 }
@@ -498,8 +504,12 @@ mod tests {
     #[test]
     fn rejects_invalid_program() {
         let mut wrong_column = statement();
-        wrong_column.spec.program = vec![Op::Down(1)];
+        wrong_column.spec.program = vec![Op::Up(1)];
         assert!(wrong_column.validate().is_err());
+
+        let mut wrong_shift = statement();
+        wrong_shift.spec.program = vec![Op::Down(0)];
+        assert!(wrong_shift.validate().is_err());
 
         let mut underflow = statement();
         underflow.spec.program = vec![Op::Add];
